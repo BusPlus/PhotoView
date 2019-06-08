@@ -37,7 +37,7 @@ import android.widget.OverScroller;
  * gain the functionality that {@link PhotoView} offers
  */
 public class PhotoViewAttacher implements View.OnTouchListener,
-    View.OnLayoutChangeListener {
+        View.OnLayoutChangeListener {
 
     private static float DEFAULT_MAX_SCALE = 3.0f;
     private static float DEFAULT_MID_SCALE = 1.75f;
@@ -63,7 +63,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     private boolean mAllowParentInterceptOnEdge = true;
     private boolean mBlockParentIntercept = false;
 
-    private ImageView mImageView;
+    private View mView;
 
     // Gesture Detectors
     private GestureDetector mGestureDetector;
@@ -116,7 +116,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
              * on, and the direction of the scroll (i.e. if we're pulling against
              * the edge, aka 'overscrolling', let the parent take over).
              */
-            ViewParent parent = mImageView.getParent();
+            ViewParent parent = mView.getParent();
             if (mAllowParentInterceptOnEdge && !mScaleDragDetector.isScaling() && !mBlockParentIntercept) {
                 if (mHorizontalScrollEdge == HORIZONTAL_EDGE_BOTH
                         || (mHorizontalScrollEdge == HORIZONTAL_EDGE_LEFT && dx >= 1f)
@@ -136,10 +136,10 @@ public class PhotoViewAttacher implements View.OnTouchListener,
 
         @Override
         public void onFling(float startX, float startY, float velocityX, float velocityY) {
-            mCurrentFlingRunnable = new FlingRunnable(mImageView.getContext());
-            mCurrentFlingRunnable.fling(getImageViewWidth(mImageView),
-                getImageViewHeight(mImageView), (int) velocityX, (int) velocityY);
-            mImageView.post(mCurrentFlingRunnable);
+            mCurrentFlingRunnable = new FlingRunnable(mView.getContext());
+            mCurrentFlingRunnable.fling(getViewWidth(mView),
+                    getViewHeight(mView), (int) velocityX, (int) velocityY);
+            mView.post(mCurrentFlingRunnable);
         }
 
         @Override
@@ -155,7 +155,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     };
 
     public PhotoViewAttacher(ImageView imageView) {
-        mImageView = imageView;
+        mView = imageView;
         imageView.setOnTouchListener(this);
         imageView.addOnLayoutChangeListener(this);
         if (imageView.isInEditMode()) {
@@ -170,19 +170,19 @@ public class PhotoViewAttacher implements View.OnTouchListener,
             @Override
             public void onLongPress(MotionEvent e) {
                 if (mLongClickListener != null) {
-                    mLongClickListener.onLongClick(mImageView);
+                    mLongClickListener.onLongClick(mView);
                 }
             }
 
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2,
-                float velocityX, float velocityY) {
+                                   float velocityX, float velocityY) {
                 if (mSingleFlingListener != null) {
                     if (getScale() > DEFAULT_MIN_SCALE) {
                         return false;
                     }
                     if (e1.getPointerCount() > SINGLE_TOUCH
-                        || e2.getPointerCount() > SINGLE_TOUCH) {
+                            || e2.getPointerCount() > SINGLE_TOUCH) {
                         return false;
                     }
                     return mSingleFlingListener.onFling(e1, e2, velocityX, velocityY);
@@ -194,27 +194,27 @@ public class PhotoViewAttacher implements View.OnTouchListener,
             @Override
             public boolean onSingleTapConfirmed(MotionEvent e) {
                 if (mOnClickListener != null) {
-                    mOnClickListener.onClick(mImageView);
+                    mOnClickListener.onClick(mView);
                 }
                 final RectF displayRect = getDisplayRect();
                 final float x = e.getX(), y = e.getY();
                 if (mViewTapListener != null) {
-                    mViewTapListener.onViewTap(mImageView, x, y);
+                    mViewTapListener.onViewTap(mView, x, y);
                 }
                 if (displayRect != null) {
                     // Check to see if the user tapped on the photo
                     if (displayRect.contains(x, y)) {
                         float xResult = (x - displayRect.left)
-                            / displayRect.width();
+                                / displayRect.width();
                         float yResult = (y - displayRect.top)
-                            / displayRect.height();
+                                / displayRect.height();
                         if (mPhotoTapListener != null) {
-                            mPhotoTapListener.onPhotoTap(mImageView, xResult, yResult);
+                            mPhotoTapListener.onPhotoTap(mView, xResult, yResult);
                         }
                         return true;
                     } else {
                         if (mOutsidePhotoTapListener != null) {
-                            mOutsidePhotoTapListener.onOutsidePhotoTap(mImageView);
+                            mOutsidePhotoTapListener.onOutsidePhotoTap(mView);
                         }
                     }
                 }
@@ -274,7 +274,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
         if (finalMatrix == null) {
             throw new IllegalArgumentException("Matrix cannot be null");
         }
-        if (mImageView.getDrawable() == null) {
+        if (mView instanceof ImageView && Util.hasDrawable((ImageView) mView)) {
             return false;
         }
         mSuppMatrix.set(finalMatrix);
@@ -313,7 +313,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
 
     public float getScale() {
         return (float) Math.sqrt((float) Math.pow(getValue(mSuppMatrix, Matrix.MSCALE_X), 2) + (float) Math.pow
-            (getValue(mSuppMatrix, Matrix.MSKEW_Y), 2));
+                (getValue(mSuppMatrix, Matrix.MSKEW_Y), 2));
     }
 
     public ScaleType getScaleType() {
@@ -322,17 +322,23 @@ public class PhotoViewAttacher implements View.OnTouchListener,
 
     @Override
     public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop, int
-        oldRight, int oldBottom) {
+            oldRight, int oldBottom) {
         // Update our base matrix, as the bounds have changed
         if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
-            updateBaseMatrix(mImageView.getDrawable());
+            if (v instanceof ImageView) {
+                Drawable drawable = ((ImageView) v).getDrawable();
+                if (drawable != null)
+                    updateBaseMatrix(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
+            } else {
+                updateBaseMatrix(v.getWidth(), v.getHeight());
+            }
         }
     }
 
     @Override
     public boolean onTouch(View v, MotionEvent ev) {
         boolean handled = false;
-        if (mZoomEnabled && Util.hasDrawable((ImageView) v)) {
+        if (mZoomEnabled && v instanceof ImageView && Util.hasDrawable((ImageView) v)) {
             switch (ev.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     ViewParent parent = v.getParent();
@@ -353,14 +359,14 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                         RectF rect = getDisplayRect();
                         if (rect != null) {
                             v.post(new AnimatedZoomRunnable(getScale(), mMinScale,
-                                rect.centerX(), rect.centerY()));
+                                    rect.centerX(), rect.centerY()));
                             handled = true;
                         }
                     } else if (getScale() > mMaxScale) {
                         RectF rect = getDisplayRect();
                         if (rect != null) {
                             v.post(new AnimatedZoomRunnable(getScale(), mMaxScale,
-                                rect.centerX(), rect.centerY()));
+                                    rect.centerX(), rect.centerY()));
                             handled = true;
                         }
                     }
@@ -444,20 +450,20 @@ public class PhotoViewAttacher implements View.OnTouchListener,
 
     public void setScale(float scale, boolean animate) {
         setScale(scale,
-            (mImageView.getRight()) / 2,
-            (mImageView.getBottom()) / 2,
-            animate);
+                (mView.getRight()) / 2,
+                (mView.getBottom()) / 2,
+                animate);
     }
 
     public void setScale(float scale, float focalX, float focalY,
-        boolean animate) {
+                         boolean animate) {
         // Check to see if the scale is within bounds
         if (scale < mMinScale || scale > mMaxScale) {
             throw new IllegalArgumentException("Scale must be within the range of minScale and maxScale");
         }
         if (animate) {
-            mImageView.post(new AnimatedZoomRunnable(getScale(), scale,
-                focalX, focalY));
+            mView.post(new AnimatedZoomRunnable(getScale(), scale,
+                    focalX, focalY));
         } else {
             mSuppMatrix.setScale(scale, scale, focalX, focalY);
             checkAndDisplayMatrix();
@@ -492,7 +498,13 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     public void update() {
         if (mZoomEnabled) {
             // Update the base matrix using the current drawable
-            updateBaseMatrix(mImageView.getDrawable());
+            if (mView instanceof ImageView) {
+                Drawable drawable = ((ImageView) mView).getDrawable();
+                if (drawable != null)
+                    updateBaseMatrix(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
+            } else {
+                updateBaseMatrix(mView.getWidth(), mView.getHeight());
+            }
         } else {
             // Reset the Matrix...
             resetMatrix();
@@ -552,7 +564,11 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     }
 
     private void setImageViewMatrix(Matrix matrix) {
-        mImageView.setImageMatrix(matrix);
+        if (mView instanceof ImageView) {
+            ((ImageView) mView).setImageMatrix(matrix);
+        } else if (mView instanceof PhotoViewInterface) {
+            ((PhotoViewInterface) mView).setImageMatrix(matrix);
+        }
         // Call MatrixChangedListener if needed
         if (mMatrixChangeListener != null) {
             RectF displayRect = getDisplayRect(matrix);
@@ -578,10 +594,17 @@ public class PhotoViewAttacher implements View.OnTouchListener,
      * @return RectF - Displayed Rectangle
      */
     private RectF getDisplayRect(Matrix matrix) {
-        Drawable d = mImageView.getDrawable();
-        if (d != null) {
-            mDisplayRect.set(0, 0, d.getIntrinsicWidth(),
-                d.getIntrinsicHeight());
+        if (mView instanceof ImageView) {
+            Drawable d = ((ImageView) mView).getDrawable();
+            if (d != null) {
+                mDisplayRect.set(0, 0, d.getIntrinsicWidth(),
+                        d.getIntrinsicHeight());
+                matrix.mapRect(mDisplayRect);
+                return mDisplayRect;
+            }
+        } else {
+            mDisplayRect.set(0, 0, mView.getWidth(),
+                    mView.getHeight());
             matrix.mapRect(mDisplayRect);
             return mDisplayRect;
         }
@@ -591,34 +614,30 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     /**
      * Calculate Matrix for FIT_CENTER
      *
-     * @param drawable - Drawable being displayed
+     * @param drawableWidth  - Drawable displayed width
+     * @param drawableHeight - Drawable displayed height
      */
-    private void updateBaseMatrix(Drawable drawable) {
-        if (drawable == null) {
-            return;
-        }
-        final float viewWidth = getImageViewWidth(mImageView);
-        final float viewHeight = getImageViewHeight(mImageView);
-        final int drawableWidth = drawable.getIntrinsicWidth();
-        final int drawableHeight = drawable.getIntrinsicHeight();
+    private void updateBaseMatrix(float drawableWidth, float drawableHeight) {
+        final float viewWidth = getViewWidth(mView);
+        final float viewHeight = getViewHeight(mView);
         mBaseMatrix.reset();
         final float widthScale = viewWidth / drawableWidth;
         final float heightScale = viewHeight / drawableHeight;
         if (mScaleType == ScaleType.CENTER) {
             mBaseMatrix.postTranslate((viewWidth - drawableWidth) / 2F,
-                (viewHeight - drawableHeight) / 2F);
+                    (viewHeight - drawableHeight) / 2F);
 
         } else if (mScaleType == ScaleType.CENTER_CROP) {
             float scale = Math.max(widthScale, heightScale);
             mBaseMatrix.postScale(scale, scale);
             mBaseMatrix.postTranslate((viewWidth - drawableWidth * scale) / 2F,
-                (viewHeight - drawableHeight * scale) / 2F);
+                    (viewHeight - drawableHeight * scale) / 2F);
 
         } else if (mScaleType == ScaleType.CENTER_INSIDE) {
             float scale = Math.min(1.0f, Math.min(widthScale, heightScale));
             mBaseMatrix.postScale(scale, scale);
             mBaseMatrix.postTranslate((viewWidth - drawableWidth * scale) / 2F,
-                (viewHeight - drawableHeight * scale) / 2F);
+                    (viewHeight - drawableHeight * scale) / 2F);
 
         } else {
             RectF mTempSrc = new RectF(0, 0, drawableWidth, drawableHeight);
@@ -653,7 +672,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
         }
         final float height = rect.height(), width = rect.width();
         float deltaX = 0, deltaY = 0;
-        final int viewHeight = getImageViewHeight(mImageView);
+        final int viewHeight = getViewHeight(mView);
         if (height <= viewHeight) {
             switch (mScaleType) {
                 case FIT_START:
@@ -676,7 +695,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
         } else {
             mVerticalScrollEdge = VERTICAL_EDGE_NONE;
         }
-        final int viewWidth = getImageViewWidth(mImageView);
+        final int viewWidth = getViewWidth(mView);
         if (width <= viewWidth) {
             switch (mScaleType) {
                 case FIT_START:
@@ -704,12 +723,12 @@ public class PhotoViewAttacher implements View.OnTouchListener,
         return true;
     }
 
-    private int getImageViewWidth(ImageView imageView) {
-        return imageView.getWidth() - imageView.getPaddingLeft() - imageView.getPaddingRight();
+    private int getViewWidth(View view) {
+        return view.getWidth() - view.getPaddingLeft() - view.getPaddingRight();
     }
 
-    private int getImageViewHeight(ImageView imageView) {
-        return imageView.getHeight() - imageView.getPaddingTop() - imageView.getPaddingBottom();
+    private int getViewHeight(View view) {
+        return view.getHeight() - view.getPaddingTop() - view.getPaddingBottom();
     }
 
     private void cancelFling() {
@@ -726,7 +745,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
         private final float mZoomStart, mZoomEnd;
 
         public AnimatedZoomRunnable(final float currentZoom, final float targetZoom,
-            final float focalX, final float focalY) {
+                                    final float focalX, final float focalY) {
             mFocalX = focalX;
             mFocalY = focalY;
             mStartTime = System.currentTimeMillis();
@@ -742,7 +761,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
             onGestureListener.onScale(deltaScale, mFocalX, mFocalY);
             // We haven't hit our target scale yet, so post ourselves again
             if (t < 1f) {
-                Compat.postOnAnimation(mImageView, this);
+                Compat.postOnAnimation(mView, this);
             }
         }
 
@@ -768,7 +787,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
         }
 
         public void fling(int viewWidth, int viewHeight, int velocityX,
-            int velocityY) {
+                          int velocityY) {
             final RectF rect = getDisplayRect();
             if (rect == null) {
                 return;
@@ -793,7 +812,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
             // If we actually can move, fling the scroller
             if (startX != maxX || startY != maxY) {
                 mScroller.fling(startX, startY, velocityX, velocityY, minX,
-                    maxX, minY, maxY, 0, 0);
+                        maxX, minY, maxY, 0, 0);
             }
         }
 
@@ -810,7 +829,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                 mCurrentX = newX;
                 mCurrentY = newY;
                 // Post On animation
-                Compat.postOnAnimation(mImageView, this);
+                Compat.postOnAnimation(mView, this);
             }
         }
     }
