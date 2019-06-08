@@ -154,17 +154,17 @@ public class PhotoViewAttacher implements View.OnTouchListener,
         }
     };
 
-    public PhotoViewAttacher(ImageView imageView) {
-        mView = imageView;
-        imageView.setOnTouchListener(this);
-        imageView.addOnLayoutChangeListener(this);
-        if (imageView.isInEditMode()) {
+    public PhotoViewAttacher(View view) {
+        mView = view;
+        view.setOnTouchListener(this);
+        view.addOnLayoutChangeListener(this);
+        if (view.isInEditMode()) {
             return;
         }
         mBaseRotation = 0.0f;
         // Create Gesture Detectors...
-        mScaleDragDetector = new CustomGestureDetector(imageView.getContext(), onGestureListener);
-        mGestureDetector = new GestureDetector(imageView.getContext(), new GestureDetector.SimpleOnGestureListener() {
+        mScaleDragDetector = new CustomGestureDetector(view.getContext(), onGestureListener);
+        mGestureDetector = new GestureDetector(view.getContext(), new GestureDetector.SimpleOnGestureListener() {
 
             // forward long click listener
             @Override
