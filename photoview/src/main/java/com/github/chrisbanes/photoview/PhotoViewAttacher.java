@@ -338,7 +338,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     @Override
     public boolean onTouch(View v, MotionEvent ev) {
         boolean handled = false;
-        if (mZoomEnabled && v instanceof ImageView && Util.hasDrawable((ImageView) v)) {
+        if (mZoomEnabled && (!(v instanceof ImageView) || Util.hasDrawable((ImageView) v))) {
             switch (ev.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     ViewParent parent = v.getParent();
