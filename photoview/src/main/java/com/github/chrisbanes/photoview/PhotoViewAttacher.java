@@ -741,6 +741,14 @@ public class PhotoViewAttacher implements View.OnTouchListener,
         }
     }
 
+    public void onDrag(float x, float y) {
+        onGestureListener.onDrag(x, y);
+    }
+
+    public boolean isScaling() {
+        return mScaleDragDetector.isScaling();
+    }
+
     private class AnimatedZoomRunnable implements Runnable {
 
         private final float mFocalX, mFocalY;
