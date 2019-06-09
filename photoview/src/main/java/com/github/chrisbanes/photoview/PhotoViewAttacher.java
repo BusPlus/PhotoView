@@ -123,14 +123,17 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                         || (mHorizontalScrollEdge == HORIZONTAL_EDGE_RIGHT && dx <= -1f)
                         || (mVerticalScrollEdge == VERTICAL_EDGE_TOP && dy >= 1f)
                         || (mVerticalScrollEdge == VERTICAL_EDGE_BOTTOM && dy <= -1f)) {
-                    if (parent != null) {
-                        parent.requestDisallowInterceptTouchEvent(false);
-                    }
+                    requestDisallowInterceptTouchEvent(parent, false);
                 }
             } else {
-                if (parent != null) {
-                    parent.requestDisallowInterceptTouchEvent(true);
-                }
+                requestDisallowInterceptTouchEvent(parent, true);
+            }
+        }
+
+        private void requestDisallowInterceptTouchEvent(ViewParent parent, boolean disallowIntercept) {
+            if (parent != null) {
+                parent.requestDisallowInterceptTouchEvent(disallowIntercept);
+                requestDisallowInterceptTouchEvent(parent.getParent(), disallowIntercept);
             }
         }
 
