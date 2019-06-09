@@ -31,6 +31,8 @@ import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 import android.widget.OverScroller;
 
+import androidx.annotation.Size;
+
 /**
  * The component of {@link PhotoView} which does the work allowing for zooming, scaling, panning, etc.
  * It is made public in case you need to subclass something other than AppCompatImageView and still
@@ -782,6 +784,16 @@ public class PhotoViewAttacher implements View.OnTouchListener,
             t = mInterpolator.getInterpolation(t);
             return t;
         }
+    }
+
+    public void setSuppMatrix(Matrix matrix) {
+        mSuppMatrix.set(matrix);
+        checkAndDisplayMatrix();
+    }
+
+    public void setSuppMatrix(@Size(9) float[] values) {
+        mSuppMatrix.setValues(values);
+        checkAndDisplayMatrix();
     }
 
     private class FlingRunnable implements Runnable {
