@@ -125,7 +125,12 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                         || (mHorizontalScrollEdge == HORIZONTAL_EDGE_RIGHT && dx <= -1f)
                         || (mVerticalScrollEdge == VERTICAL_EDGE_TOP && dy >= 1f)
                         || (mVerticalScrollEdge == VERTICAL_EDGE_BOTTOM && dy <= -1f)) {
-                    requestDisallowInterceptTouchEvent(parent, false);
+                    float[] values = new float[9];
+                    mSuppMatrix.getValues(values);
+                    requestDisallowInterceptTouchEvent(parent, values[Matrix.MTRANS_X] == 0
+                            || values[Matrix.MTRANS_Y] == 0
+                            || values[Matrix.MTRANS_X] == getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1)
+                            || values[Matrix.MTRANS_Y] == getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1));
                 } else {
                     requestDisallowInterceptTouchEvent(parent, true);
                 }
