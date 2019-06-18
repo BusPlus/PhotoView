@@ -129,8 +129,8 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                     mSuppMatrix.getValues(values);
                     requestDisallowInterceptTouchEvent(parent, !(values[Matrix.MTRANS_X] == 0
                             || values[Matrix.MTRANS_Y] == 0
-                            || values[Matrix.MTRANS_X] == getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1)
-                            || values[Matrix.MTRANS_Y] == getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1)));
+                            || -values[Matrix.MTRANS_X] == getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1)
+                            || -values[Matrix.MTRANS_Y] == getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1)));
                 } else {
                     requestDisallowInterceptTouchEvent(parent, true);
                 }
