@@ -126,6 +126,8 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                         || (mVerticalScrollEdge == VERTICAL_EDGE_TOP && dy >= 1f)
                         || (mVerticalScrollEdge == VERTICAL_EDGE_BOTTOM && dy <= -1f)) {
                     requestDisallowInterceptTouchEvent(parent, false);
+                } else {
+                    requestDisallowInterceptTouchEvent(parent, true);
                 }
             } else {
                 requestDisallowInterceptTouchEvent(parent, true);
