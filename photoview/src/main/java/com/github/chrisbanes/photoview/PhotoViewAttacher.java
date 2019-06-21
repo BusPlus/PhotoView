@@ -382,6 +382,10 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                     }
                     break;
             }
+            if (ev.getPointerCount() > 1) {
+                mIsDirtyDrag = false;
+                mIsSkipTouchEvent = false;
+            }
             // Try the Scale/Drag detector
             if (!mIsSkipTouchEvent && mScaleDragDetector != null) {
                 boolean wasScaling = mScaleDragDetector.isScaling();
