@@ -108,17 +108,20 @@ public class PhotoViewAttacher implements View.OnTouchListener,
              * on, and the direction of the scroll (i.e. if we're pulling against
              * the edge, aka 'overscrolling', let the parent take over).
              */
-            if (mIsDirtyDrag && mAllowParentInterceptOnEdge && !mScaleDragDetector.isScaling() && !mBlockParentIntercept && (Math.abs(dx) >= mTouchSlop || Math.abs(dy) >= mTouchSlop)) {
+            if (mIsDirtyDrag && mAllowParentInterceptOnEdge && !mScaleDragDetector.isScaling() && !mBlockParentIntercept) {
                 float[] values = new float[9];
                 mSuppMatrix.getValues(values);
-                if (-values[Matrix.MTRANS_X] <= 0 && dx >= mTouchSlop
-                        || -values[Matrix.MTRANS_Y] <= 0 && dy >= mTouchSlop
-                        || -values[Matrix.MTRANS_X] >= getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1) && dx <= -mTouchSlop
-                        || -values[Matrix.MTRANS_Y] >= getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1) && dy <= -mTouchSlop) {
-                    requestDisallowInterceptTouchEvent(mView.getParent(), false);
-                    mIsSkipTouchEvent = true;
+                float touchSlop = values[Matrix.MSCALE_X] == 1 ? 0 : mTouchSlop;
+                if (Math.abs(dx) >= mTouchSlop || Math.abs(dy) >= touchSlop) {
+                    if (-values[Matrix.MTRANS_X] <= 0 && dx >= touchSlop
+                            || -values[Matrix.MTRANS_Y] <= 0 && dy >= touchSlop
+                            || -values[Matrix.MTRANS_X] >= getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1) && dx <= -touchSlop
+                            || -values[Matrix.MTRANS_Y] >= getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1) && dy <= -touchSlop) {
+                        requestDisallowInterceptTouchEvent(mView.getParent(), false);
+                        mIsSkipTouchEvent = true;
+                    }
+                    mIsDirtyDrag = false;
                 }
-                mIsDirtyDrag = false;
             }
 
             if (!mIsSkipTouchEvent) {
