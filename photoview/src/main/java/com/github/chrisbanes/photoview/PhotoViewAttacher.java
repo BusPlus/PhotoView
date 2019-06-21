@@ -55,7 +55,9 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     private float mMidScale = DEFAULT_MID_SCALE;
     private float mMaxScale = DEFAULT_MAX_SCALE;
 
-    private boolean mAllowParentInterceptOnEdge = true;
+    private boolean mAllowParentInterceptOnHorizontalEdge = true;
+    private boolean mAllowParentInterceptOnVerticalEdge = true;
+
     private boolean mBlockParentIntercept = false;
 
     private View mView;
@@ -108,20 +110,27 @@ public class PhotoViewAttacher implements View.OnTouchListener,
              * on, and the direction of the scroll (i.e. if we're pulling against
              * the edge, aka 'overscrolling', let the parent take over).
              */
-            if (mIsDirtyDrag && mAllowParentInterceptOnEdge && !mScaleDragDetector.isScaling() && !mBlockParentIntercept) {
+            if (mIsDirtyDrag && (mAllowParentInterceptOnHorizontalEdge || mAllowParentInterceptOnVerticalEdge) && !mScaleDragDetector.isScaling() && !mBlockParentIntercept) {
                 float[] values = new float[9];
                 mSuppMatrix.getValues(values);
                 float touchSlop = values[Matrix.MSCALE_X] == 1 ? 0 : mTouchSlop;
-                if (Math.abs(dx) >= mTouchSlop || Math.abs(dy) >= touchSlop) {
-                    if (-values[Matrix.MTRANS_X] <= 0 && dx >= touchSlop
-                            || -values[Matrix.MTRANS_Y] <= 0 && dy >= touchSlop
-                            || -values[Matrix.MTRANS_X] >= getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1) && dx <= -touchSlop
-                            || -values[Matrix.MTRANS_Y] >= getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1) && dy <= -touchSlop) {
+                float transX = values[Matrix.MTRANS_X];
+                float transY = values[Matrix.MTRANS_Y];
+                double width = Math.floor(getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1));
+                double height = Math.floor(getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1));
+                if (mAllowParentInterceptOnHorizontalEdge && Math.abs(dx) >= mTouchSlop
+                        || mAllowParentInterceptOnVerticalEdge && Math.abs(dy) >= touchSlop) {
+                    if ((mAllowParentInterceptOnHorizontalEdge &&
+                            (-transX <= 0 && dx >= touchSlop || -transX >= width && dx <= -touchSlop))
+                            || (mAllowParentInterceptOnVerticalEdge &&
+                            (-transY <= 0 && dy >= touchSlop || -transY >= height && dy <= -touchSlop))) {
                         requestDisallowInterceptTouchEvent(mView.getParent(), false);
                         mIsSkipTouchEvent = true;
                     }
                     mIsDirtyDrag = false;
                 }
+            } else if (!mAllowParentInterceptOnHorizontalEdge && !mAllowParentInterceptOnVerticalEdge) {
+                mIsDirtyDrag = false;
             }
 
             if (!mIsSkipTouchEvent) {
@@ -405,7 +414,15 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     }
 
     public void setAllowParentInterceptOnEdge(boolean allow) {
-        mAllowParentInterceptOnEdge = allow;
+        mAllowParentInterceptOnHorizontalEdge = mAllowParentInterceptOnVerticalEdge = allow;
+    }
+
+    public void setAllowParentInterceptOnHorizontalEdge(boolean allow) {
+        mAllowParentInterceptOnHorizontalEdge = allow;
+    }
+
+    public void setAllowParentInterceptOnVerticalEdge(boolean allow) {
+        mAllowParentInterceptOnVerticalEdge = allow;
     }
 
     public void setMinimumScale(float minimumScale) {
