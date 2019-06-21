@@ -31,7 +31,7 @@ public class ImmersiveActivity extends AppCompatActivity {
                 .into(photoView);
         photoView.setOnPhotoTapListener(new OnPhotoTapListener() {
             @Override
-            public void onPhotoTap(ImageView view, float x, float y) {
+            public void onPhotoTap(View view, float x, float y) {
                 //fullScreen();
             }
         });

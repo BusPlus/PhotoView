@@ -90,12 +90,13 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     private OnViewDragListener mOnViewDragListener;
 
     private FlingRunnable mCurrentFlingRunnable;
-    private int mHorizontalScrollEdge = HORIZONTAL_EDGE_BOTH;
-    private int mVerticalScrollEdge = VERTICAL_EDGE_BOTH;
     private float mBaseRotation;
 
     private boolean mZoomEnabled = true;
     private ScaleType mScaleType = ScaleType.FIT_CENTER;
+
+    private boolean mIsDirtyDrag = true;
+    private boolean mIsSkipTouchEvent = false;
 
     private OnGestureListener onGestureListener = new OnGestureListener() {
         @Override
@@ -103,11 +104,6 @@ public class PhotoViewAttacher implements View.OnTouchListener,
             if (mScaleDragDetector.isScaling()) {
                 return; // Do not drag if we are already scaling
             }
-            if (mOnViewDragListener != null) {
-                mOnViewDragListener.onDrag(dx, dy);
-            }
-            mSuppMatrix.postTranslate(dx, dy);
-            checkAndDisplayMatrix();
 
             /*
              * Here we decide whether to let the ImageView's parent to start taking
@@ -118,31 +114,26 @@ public class PhotoViewAttacher implements View.OnTouchListener,
              * on, and the direction of the scroll (i.e. if we're pulling against
              * the edge, aka 'overscrolling', let the parent take over).
              */
-            ViewParent parent = mView.getParent();
-            if (mAllowParentInterceptOnEdge && !mScaleDragDetector.isScaling() && !mBlockParentIntercept) {
-                if (mHorizontalScrollEdge == HORIZONTAL_EDGE_BOTH
-                        || (mHorizontalScrollEdge == HORIZONTAL_EDGE_LEFT && dx >= 1f)
-                        || (mHorizontalScrollEdge == HORIZONTAL_EDGE_RIGHT && dx <= -1f)
-                        || (mVerticalScrollEdge == VERTICAL_EDGE_TOP && dy >= 1f)
-                        || (mVerticalScrollEdge == VERTICAL_EDGE_BOTTOM && dy <= -1f)) {
-                    float[] values = new float[9];
-                    mSuppMatrix.getValues(values);
-                    requestDisallowInterceptTouchEvent(parent, !(values[Matrix.MTRANS_X] == 0
-                            || values[Matrix.MTRANS_Y] == 0
-                            || -values[Matrix.MTRANS_X] == getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1)
-                            || -values[Matrix.MTRANS_Y] == getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1)));
-                } else {
-                    requestDisallowInterceptTouchEvent(parent, true);
+            if (mIsDirtyDrag && mAllowParentInterceptOnEdge && !mScaleDragDetector.isScaling() && !mBlockParentIntercept) {
+                float[] values = new float[9];
+                mSuppMatrix.getValues(values);
+                if (-values[Matrix.MTRANS_X] <= 0 && dx > 0
+                        || -values[Matrix.MTRANS_Y] <= 0 && dy > 0
+                        || -values[Matrix.MTRANS_X] >= getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1) && dx < 0
+                        || -values[Matrix.MTRANS_Y] >= getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1) && dy < 0) {
+                    requestDisallowInterceptTouchEvent(mView.getParent(), false);
+                    mIsSkipTouchEvent = true;
                 }
-            } else {
-                requestDisallowInterceptTouchEvent(parent, true);
+                mIsDirtyDrag = false;
             }
-        }
 
-        private void requestDisallowInterceptTouchEvent(ViewParent parent, boolean disallowIntercept) {
-            if (parent != null) {
-                parent.requestDisallowInterceptTouchEvent(disallowIntercept);
-                requestDisallowInterceptTouchEvent(parent.getParent(), disallowIntercept);
+            if (!mIsSkipTouchEvent) {
+                if (mOnViewDragListener != null) {
+                    mOnViewDragListener.onDrag(dx, dy);
+                }
+
+                mSuppMatrix.postTranslate(dx, dy);
+                checkAndDisplayMatrix();
             }
         }
 
@@ -347,18 +338,25 @@ public class PhotoViewAttacher implements View.OnTouchListener,
         }
     }
 
+    private void requestDisallowInterceptTouchEvent(ViewParent parent, boolean disallowIntercept) {
+        if (parent != null) {
+            parent.requestDisallowInterceptTouchEvent(disallowIntercept);
+            requestDisallowInterceptTouchEvent(parent.getParent(), disallowIntercept);
+        }
+    }
+
     @Override
     public boolean onTouch(View v, MotionEvent ev) {
         boolean handled = false;
         if (mZoomEnabled && (!(v instanceof ImageView) || Util.hasDrawable((ImageView) v))) {
             switch (ev.getAction()) {
                 case MotionEvent.ACTION_DOWN:
+                    mIsDirtyDrag = true;
+                    mIsSkipTouchEvent = false;
                     ViewParent parent = v.getParent();
                     // First, disable the Parent from intercepting the touch
                     // event
-                    if (parent != null) {
-                        parent.requestDisallowInterceptTouchEvent(true);
-                    }
+                    requestDisallowInterceptTouchEvent(parent, true);
                     // If we're flinging, and the user presses down, cancel
                     // fling
                     cancelFling();
@@ -385,7 +383,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                     break;
             }
             // Try the Scale/Drag detector
-            if (mScaleDragDetector != null) {
+            if (!mIsSkipTouchEvent && mScaleDragDetector != null) {
                 boolean wasScaling = mScaleDragDetector.isScaling();
                 boolean wasDragging = mScaleDragDetector.isDragging();
                 handled = mScaleDragDetector.onTouchEvent(ev);
@@ -394,7 +392,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                 mBlockParentIntercept = didntScale && didntDrag;
             }
             // Check to see if the user double tapped
-            if (mGestureDetector != null && mGestureDetector.onTouchEvent(ev)) {
+            if (!mIsSkipTouchEvent && mGestureDetector != null && mGestureDetector.onTouchEvent(ev)) {
                 handled = true;
             }
 
@@ -697,15 +695,10 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                     deltaY = (viewHeight - height) / 2 - rect.top;
                     break;
             }
-            mVerticalScrollEdge = VERTICAL_EDGE_BOTH;
         } else if (rect.top > 0) {
-            mVerticalScrollEdge = VERTICAL_EDGE_TOP;
             deltaY = -rect.top;
         } else if (rect.bottom < viewHeight) {
-            mVerticalScrollEdge = VERTICAL_EDGE_BOTTOM;
             deltaY = viewHeight - rect.bottom;
-        } else {
-            mVerticalScrollEdge = VERTICAL_EDGE_NONE;
         }
         final int viewWidth = getViewWidth(mView);
         if (width <= viewWidth) {
@@ -720,15 +713,10 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                     deltaX = (viewWidth - width) / 2 - rect.left;
                     break;
             }
-            mHorizontalScrollEdge = HORIZONTAL_EDGE_BOTH;
         } else if (rect.left > 0) {
-            mHorizontalScrollEdge = HORIZONTAL_EDGE_LEFT;
             deltaX = -rect.left;
         } else if (rect.right < viewWidth) {
             deltaX = viewWidth - rect.right;
-            mHorizontalScrollEdge = HORIZONTAL_EDGE_RIGHT;
-        } else {
-            mHorizontalScrollEdge = HORIZONTAL_EDGE_NONE;
         }
         // Finally actually translate the matrix
         mSuppMatrix.postTranslate(deltaX, deltaY);
@@ -748,14 +736,6 @@ public class PhotoViewAttacher implements View.OnTouchListener,
             mCurrentFlingRunnable.cancelFling();
             mCurrentFlingRunnable = null;
         }
-    }
-
-    public void onDrag(float x, float y) {
-        onGestureListener.onDrag(x, y);
-    }
-
-    public boolean isScaling() {
-        return mScaleDragDetector.isScaling();
     }
 
     private class AnimatedZoomRunnable implements Runnable {

@@ -144,7 +144,7 @@ public class SimpleSampleActivity extends AppCompatActivity {
     private class PhotoTapListener implements OnPhotoTapListener {
 
         @Override
-        public void onPhotoTap(ImageView view, float x, float y) {
+        public void onPhotoTap(View view, float x, float y) {
             float xPercentage = x * 100f;
             float yPercentage = y * 100f;
 
