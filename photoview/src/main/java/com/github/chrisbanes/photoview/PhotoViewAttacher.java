@@ -24,6 +24,7 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnLongClickListener;
+import android.view.ViewConfiguration;
 import android.view.ViewParent;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.Interpolator;
@@ -46,14 +47,6 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     private static float DEFAULT_MIN_SCALE = 1.0f;
     private static int DEFAULT_ZOOM_DURATION = 200;
 
-    private static final int HORIZONTAL_EDGE_NONE = -1;
-    private static final int HORIZONTAL_EDGE_LEFT = 0;
-    private static final int HORIZONTAL_EDGE_RIGHT = 1;
-    private static final int HORIZONTAL_EDGE_BOTH = 2;
-    private static final int VERTICAL_EDGE_NONE = -1;
-    private static final int VERTICAL_EDGE_TOP = 0;
-    private static final int VERTICAL_EDGE_BOTTOM = 1;
-    private static final int VERTICAL_EDGE_BOTH = 2;
     private static int SINGLE_TOUCH = 1;
 
     private Interpolator mInterpolator = new AccelerateDecelerateInterpolator();
@@ -70,6 +63,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     // Gesture Detectors
     private GestureDetector mGestureDetector;
     private CustomGestureDetector mScaleDragDetector;
+    private float mTouchSlop;
 
     // These are set so we don't keep allocating them on the heap
     private final Matrix mBaseMatrix = new Matrix();
@@ -114,13 +108,13 @@ public class PhotoViewAttacher implements View.OnTouchListener,
              * on, and the direction of the scroll (i.e. if we're pulling against
              * the edge, aka 'overscrolling', let the parent take over).
              */
-            if (mIsDirtyDrag && mAllowParentInterceptOnEdge && !mScaleDragDetector.isScaling() && !mBlockParentIntercept) {
+            if (mIsDirtyDrag && mAllowParentInterceptOnEdge && !mScaleDragDetector.isScaling() && !mBlockParentIntercept && (Math.abs(dx) >= mTouchSlop || Math.abs(dy) >= mTouchSlop)) {
                 float[] values = new float[9];
                 mSuppMatrix.getValues(values);
-                if (-values[Matrix.MTRANS_X] <= 0 && dx > 0
-                        || -values[Matrix.MTRANS_Y] <= 0 && dy > 0
-                        || -values[Matrix.MTRANS_X] >= getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1) && dx < 0
-                        || -values[Matrix.MTRANS_Y] >= getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1) && dy < 0) {
+                if (-values[Matrix.MTRANS_X] <= 0 && dx >= mTouchSlop
+                        || -values[Matrix.MTRANS_Y] <= 0 && dy >= mTouchSlop
+                        || -values[Matrix.MTRANS_X] >= getViewWidth(mView) * (values[Matrix.MSCALE_X] - 1) && dx <= -mTouchSlop
+                        || -values[Matrix.MTRANS_Y] >= getViewHeight(mView) * (values[Matrix.MSCALE_Y] - 1) && dy <= -mTouchSlop) {
                     requestDisallowInterceptTouchEvent(mView.getParent(), false);
                     mIsSkipTouchEvent = true;
                 }
@@ -158,6 +152,9 @@ public class PhotoViewAttacher implements View.OnTouchListener,
     };
 
     public PhotoViewAttacher(View view) {
+        ViewConfiguration configuration = ViewConfiguration.get(view.getContext());
+        mTouchSlop = configuration.getScaledTouchSlop();
+
         mView = view;
         view.setOnTouchListener(this);
         view.addOnLayoutChangeListener(this);
@@ -382,7 +379,7 @@ public class PhotoViewAttacher implements View.OnTouchListener,
                     }
                     break;
             }
-            if (ev.getPointerCount() > 1) {
+            if (ev.getPointerCount() > SINGLE_TOUCH) {
                 mIsDirtyDrag = false;
                 mIsSkipTouchEvent = false;
             }
